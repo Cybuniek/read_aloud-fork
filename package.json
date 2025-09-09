@@ -7,7 +7,8 @@
   },
   "scripts": {
     "package": "zip -r build/package.zip _locales css img js sound *.html manifest.json background.js -x \\*.map || true",
-    "sync-page-scripts": "rsync -avz js/messaging.js page-scripts/ && aws s3 sync --delete --metadata-directive REPLACE --cache-control max-age=14400,public page-scripts s3://lsdsoftware-assets/read-aloud/page-scripts"
+    "sync-page-scripts": "rsync -avz js/messaging.js page-scripts/ && aws s3 sync --delete --metadata-directive REPLACE --cache-control max-age=14400,public page-scripts s3://lsdsoftware-assets/read-aloud/page-scripts",
+    "test": "node --check js/tts-engines.js && node --check js/defaults.js && node --check js/custom-voices.js && node --check js/options.js && node --check js/speech.js"
   },
   "repository": {
     "type": "git",
