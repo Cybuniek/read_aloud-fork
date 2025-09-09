@@ -979,7 +979,12 @@ function OpenaiTtsEngine() {
         if (prefetchAudio && prefetchAudio[0] == utterance && prefetchAudio[1] == options) return prefetchAudio[2]
         else return getAudioUrl(utterance, options.voice, options.pitch)
       })
-    return playAudio(urlPromise, options, playbackState$)
+    // The OpenAI speech endpoint does not natively support a pitch parameter.
+    // To provide a user‑perceived pitch change we adjust the playback rate
+    // locally.  `rateAdjust` is multiplied against the requested rate in
+    // playAudioHere(), so map the pitch slider (default 1) to this multiplier.
+    const rateAdjust = options.pitch || 1
+    return playAudio(urlPromise, {...options, rateAdjust}, playbackState$)
   }
   this.prefetch = async function(utterance, options) {
     try {
