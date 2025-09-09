@@ -201,6 +201,61 @@
           </div>
         </div>
       </div>
+      <div class="col-lg-6">
+        <div class="card border-primary openai-realtime">
+          <div class="card-header card-header-dark">
+            OpenAI Realtime
+            <div class="subtext">Use OpenAI's Realtime API for streaming speech</div>
+          </div>
+          <div class="card-body view-new">
+            <div class="form-group">
+              <button type="button" class="btn btn-outline-primary btn-add">Add</button>
+            </div>
+          </div>
+          <div class="card-body view-exist">
+            <div class="form-group">
+              <div class="text-muted">API URL</div>
+              <div class="endpoint-url"></div>
+            </div>
+            <div class="form-group">
+              <div class="text-muted">API Key</div>
+              <div class="api-key"></div>
+            </div>
+            <div class="form-group">
+              <div class="text-muted">Voice List</div>
+              <div class="voice-list"></div>
+            </div>
+            <div class="form-group">
+              <button type="button" class="btn btn-outline-primary btn-edit">Edit</button>
+              <button type="button" class="btn btn-outline-danger btn-delete">Delete</button>
+            </div>
+          </div>
+          <div class="card-body view-edit">
+            <form>
+              <div class="form-group">
+                <label>API URL</label>
+                <input type="text" class="form-control txt-endpoint-url">
+              </div>
+              <div class="form-group">
+                <label>API Key (if required)</label>
+                <input type="password" class="form-control txt-api-key">
+              </div>
+              <div class="form-group">
+                <label>Voice List</label>
+                <textarea class="form-control txt-voice-list" rows="6"></textarea>
+              </div>
+              <div class="form-group">
+                <img class="status progress" src="img/loading.gif">
+                <div class="status error alert alert-danger"></div>
+              </div>
+              <div class="form-group">
+                <button type="button" class="btn btn-primary btn-save">Save</button>
+                <button type="button" class="btn btn-light btn-cancel">Cancel</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
     </div>
 
   </div>

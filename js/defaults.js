@@ -157,6 +157,7 @@ const voices$ = rxjs.combineLatest({
   gcpCreds: observeSetting("gcpCreds"),
   ibmCreds: observeSetting("ibmCreds"),
   openaiCreds: observeSetting("openaiCreds"),
+  openaiRealtimeCreds: observeSetting("openaiRealtimeCreds"),
   azureCreds: observeSetting("azureCreds"),
   piperVoices: observeSetting("piperVoices"),
 }).pipe(
@@ -169,6 +170,7 @@ const voices$ = rxjs.combineLatest({
     settings.ibmCreds ? ibmWatsonTtsEngine.getVoices() : [],
     phoneTtsEngine.getVoices(),
     settings.openaiCreds ? openaiTtsEngine.getVoices() : [],
+    settings.openaiRealtimeCreds ? openaiRealtimeTtsEngine.getVoices() : [],
     settings.azureCreds ? azureTtsEngine.getVoices() : [],
     settings.piperVoices || [],
   ])),
@@ -244,6 +246,10 @@ function isOpenai(voice) {
   return /^OpenAI /.test(voice.voiceName);
 }
 
+function isOpenaiRealtime(voice) {
+  return /^OpenAI Realtime /.test(voice.voiceName);
+}
+
 function isAzure(voice) {
   return /^Azure /.test(voice.voiceName);
 }
@@ -271,6 +277,7 @@ function isNativeVoice(voice) {
     || isGoogleWavenet(voice)
     || isIbmWatson(voice)
     || isOpenai(voice)
+    || isOpenaiRealtime(voice)
     || isAzure(voice)
   )
 }
