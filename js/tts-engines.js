@@ -1004,6 +1004,13 @@ function OpenaiTtsEngine() {
     const voiceId = voice.voiceName.slice(7)
     const voiceInfo = openaiCreds.voiceList.find(x => x.voice == voiceId)
     assert(voiceInfo, "Voice not found " + voiceId)
+    const postData = {
+      model: voiceInfo.model,
+      input: text,
+      voice: voiceInfo.voice,
+      response_format: "mp3",
+    }
+    if (pitch != null) postData.pitch = ((pitch || 1) - 1) * 20
     const res = await fetch(openaiCreds.url + "/audio/speech", {
       method: "POST",
       headers: {
@@ -1014,12 +1021,7 @@ function OpenaiTtsEngine() {
           } : null
         )
       },
-      body: JSON.stringify({
-        model: voiceInfo.model,
-        input: text,
-        voice: voiceInfo.voice,
-        response_format: "mp3",
-      })
+      body: JSON.stringify(postData)
     })
     if (!res.ok) throw await res.json().then(x => x.error)
     return URL.createObjectURL(await res.blob())
