@@ -7,6 +7,7 @@ var googleWavenetTtsEngine = new GoogleWavenetTtsEngine();
 var ibmWatsonTtsEngine = new IbmWatsonTtsEngine();
 var phoneTtsEngine = new PhoneTtsEngine();
 var openaiTtsEngine = new OpenaiTtsEngine();
+var openaiRealtimeTtsEngine = new OpenaiRealtimeTtsEngine();
 var azureTtsEngine = new AzureTtsEngine();
 const piperTtsEngine = new PiperTtsEngine()
 
@@ -956,12 +957,16 @@ function PhoneTtsEngine() {
 function OpenaiTtsEngine() {
   this.defaultEndpointUrl = "https://api.openai.com/v1"
   this.defaultVoiceList = [
-    {voice: "alloy", lang: "en-US", model: "tts-1"},
-    {voice: "echo", lang: "en-US", model: "tts-1"},
-    {voice: "fable", lang: "en-US", model: "tts-1"},
-    {voice: "onyx", lang: "en-US", model: "tts-1"},
-    {voice: "nova", lang: "en-US", model: "tts-1"},
-    {voice: "shimmer", lang: "en-US", model: "tts-1"},
+    {voice: "alloy", lang: "pl-PL", model: "gpt-4o-mini-tts", instructions: ""},
+    {voice: "ash", lang: "pl-PL", model: "gpt-4o-mini-tts", instructions: ""},
+    {voice: "ballad", lang: "pl-PL", model: "gpt-4o-mini-tts", instructions: ""},
+    {voice: "coral", lang: "pl-PL", model: "gpt-4o-mini-tts", instructions: ""},
+    {voice: "echo", lang: "pl-PL", model: "gpt-4o-mini-tts", instructions: ""},
+    {voice: "fable", lang: "pl-PL", model: "gpt-4o-mini-tts", instructions: ""},
+    {voice: "nova", lang: "pl-PL", model: "gpt-4o-mini-tts", instructions: ""},
+    {voice: "onyx", lang: "pl-PL", model: "gpt-4o-mini-tts", instructions: ""},
+    {voice: "sage", lang: "pl-PL", model: "gpt-4o-mini-tts", instructions: ""},
+    {voice: "shimmer", lang: "pl-PL", model: "gpt-4o-mini-tts", instructions: ""},
   ]
   var prefetchAudio
   this.test = async function({apiKey, url, voiceList}) {
@@ -1019,6 +1024,7 @@ function OpenaiTtsEngine() {
         input: text,
         voice: voiceInfo.voice,
         response_format: "mp3",
+        ...(voiceInfo.instructions ? {instructions: voiceInfo.instructions} : {}),
       })
     })
     if (!res.ok) throw await res.json().then(x => x.error)
@@ -1026,6 +1032,111 @@ function OpenaiTtsEngine() {
   }
 }
 
+
+function OpenaiRealtimeTtsEngine() {
+  this.defaultEndpointUrl = "https://api.openai.com/v1";
+  this.defaultVoiceList = [
+    {voice: "alloy", lang: "pl-PL", model: "gpt-realtime", instructions: ""},
+    {voice: "ash", lang: "pl-PL", model: "gpt-realtime", instructions: ""},
+    {voice: "ballad", lang: "pl-PL", model: "gpt-realtime", instructions: ""},
+    {voice: "cedar", lang: "pl-PL", model: "gpt-realtime", instructions: ""},
+    {voice: "coral", lang: "pl-PL", model: "gpt-realtime", instructions: ""},
+    {voice: "echo", lang: "pl-PL", model: "gpt-realtime", instructions: ""},
+    {voice: "marin", lang: "pl-PL", model: "gpt-realtime", instructions: ""},
+    {voice: "sage", lang: "pl-PL", model: "gpt-realtime", instructions: ""},
+    {voice: "shimmer", lang: "pl-PL", model: "gpt-realtime", instructions: ""},
+    {voice: "verse", lang: "pl-PL", model: "gpt-realtime", instructions: ""},
+  ]
+  var prefetchAudio
+  this.test = async function({apiKey, url, voiceList}) {
+    const res = await fetch(url + "/models", {
+      headers: {"Authorization": "Bearer " + apiKey}
+    })
+    if (!res.ok) {
+      const {error} = await res.json()
+      throw error
+    }
+  }
+  this.speak = function(utterance, options, playbackState$) {
+    const urlPromise = Promise.resolve()
+      .then(() => {
+        if (prefetchAudio && prefetchAudio[0] == utterance && prefetchAudio[1] == options) return prefetchAudio[2]
+        else return getAudioUrl(utterance, options.voice)
+      })
+    return playAudio(urlPromise, options, playbackState$)
+  }
+  this.prefetch = async function(utterance, options) {
+    try {
+      const url = await getAudioUrl(utterance, options.voice)
+      prefetchAudio = [utterance, options, url]
+    }
+    catch (err) {
+      console.error(err)
+    }
+  }
+  this.getVoices = async function() {
+    const openaiCreds = await getSetting("openaiRealtimeCreds")
+    const voiceList = openaiCreds ? (openaiCreds.voiceList || this.defaultVoiceList) : []
+    return voiceList.map(({voice, lang}) => ({
+      voiceName: "OpenAI Realtime " + voice,
+      lang
+    }))
+  }
+  async function getAudioUrl(text, voice) {
+    assert(text && voice)
+    const {openaiRealtimeCreds} = await getSettings(["openaiRealtimeCreds"])
+    const voiceId = voice.voiceName.replace(/^OpenAI Realtime /, "")
+    const voiceInfo = openaiRealtimeCreds.voiceList.find(x => x.voice == voiceId)
+    assert(voiceInfo, "Voice not found " + voiceId)
+    const wsUrl = (openaiRealtimeCreds.url.replace(/^http/, "ws")
+      + `/realtime?model=${encodeURIComponent(voiceInfo.model)}&voice=${encodeURIComponent(voiceInfo.voice)}`)
+      + (openaiRealtimeCreds.apiKey ? `&api_key=${openaiRealtimeCreds.apiKey}` : "")
+    const repeatInstruction = "Repeat the input text word for word without adding anything else."
+    return await new Promise((fulfill, reject) => {
+      const ws = new WebSocket(wsUrl, ["realtime.v1"])
+      const chunks = []
+      ws.onmessage = event => {
+        try {
+          const msg = JSON.parse(event.data)
+          if (msg.type == "response.audio.delta") {
+            chunks.push(msg.delta)
+          }
+          else if (msg.type == "response.completed") {
+            ws.close()
+            const b64 = chunks.join("")
+            const binary = atob(b64)
+            const len = binary.length
+            const bytes = new Uint8Array(len)
+            for (let i=0; i<len; i++) bytes[i] = binary.charCodeAt(i)
+            const blob = new Blob([bytes.buffer], {type: "audio/mpeg"})
+            fulfill(URL.createObjectURL(blob))
+          }
+          else if (msg.type == "error") {
+            ws.close()
+            reject(new Error(msg.error?.message || msg.error))
+          }
+        }
+        catch(err) {
+          ws.close()
+          reject(err)
+        }
+      }
+      ws.onerror = err => {
+        ws.close()
+        reject(err)
+      }
+      ws.onopen = () => {
+        ws.send(JSON.stringify({
+          type: "response.create",
+          response: {
+            instructions: ((voiceInfo.instructions ? voiceInfo.instructions + " " : "") + repeatInstruction),
+            input_text: text
+          }
+        }))
+      }
+    })
+  }
+}
 
 function AzureTtsEngine() {
   var prefetchAudio;

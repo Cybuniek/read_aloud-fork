@@ -247,3 +247,67 @@ $(function() {
     editMode$.next(false)
   })
 })
+
+//OpenAI Realtime
+$(function() {
+  const creds$ = observeSetting("openaiRealtimeCreds")
+  const editMode$ = new rxjs.BehaviorSubject(false)
+  const status$ = new rxjs.BehaviorSubject({type: "IDLE"})
+
+  rxjs.combineLatest(creds$, editMode$).subscribe(([creds, editMode]) => {
+    $(".openai-realtime .view-new").toggle(creds == null && !editMode)
+    $(".openai-realtime .view-exist").toggle(creds != null && !editMode)
+    $(".openai-realtime .view-edit").toggle(editMode)
+  })
+
+  creds$.subscribe(creds => {
+    const endpointUrl = creds && creds.url || openaiRealtimeTtsEngine.defaultEndpointUrl
+    const apiKey = creds && creds.apiKey || ""
+    const voiceList = creds && creds.voiceList || openaiRealtimeTtsEngine.defaultVoiceList
+    $(".openai-realtime .endpoint-url").text(endpointUrl)
+    $(".openai-realtime .api-key").text(apiKey && (apiKey.slice(0,13) + "*****" + apiKey.slice(-5)))
+    $(".openai-realtime .voice-list").text(voiceList.map(x => x.voice).join(", "))
+    $(".openai-realtime .txt-endpoint-url").val(endpointUrl)
+    $(".openai-realtime .txt-api-key").val(apiKey)
+    $(".openai-realtime .txt-voice-list").val(JSON.stringify(voiceList, null, 2))
+  })
+
+  status$.subscribe(status => {
+    $(".openai-realtime .status.progress").toggle(status.type == "PROGRESS")
+    $(".openai-realtime .status.success").toggle(status.type == "SUCCESS")
+    $(".openai-realtime .status.error").toggle(status.type == "ERROR")
+      .text(status.type == "ERROR" ? status.error.message : "")
+  })
+
+  $(".openai-realtime .btn-add").click(() => {
+    status$.next({type: "IDLE"})
+    editMode$.next(true)
+  })
+  $(".openai-realtime .btn-edit").click(() => {
+    status$.next({type: "IDLE"})
+    editMode$.next(true)
+  })
+  $(".openai-realtime .btn-delete").click(() => {
+    clearSettings(["openaiRealtimeCreds"])
+    editMode$.next(false)
+  })
+  $(".openai-realtime .btn-save").click(async () => {
+    try {
+      const openaiRealtimeCreds = {
+        url: $(".openai-realtime .txt-endpoint-url").val(),
+        apiKey: $(".openai-realtime .txt-api-key").val(),
+        voiceList: JSON.parse($(".openai-realtime .txt-voice-list").val())
+      }
+      status$.next({type: "PROGRESS"})
+      await openaiRealtimeTtsEngine.test(openaiRealtimeCreds)
+      await updateSettings({openaiRealtimeCreds})
+      editMode$.next(false)
+      status$.next({type: "IDLE"})
+    } catch (err) {
+      status$.next({type: "ERROR", error: err})
+    }
+  })
+  $(".openai-realtime .btn-cancel").click(() => {
+    editMode$.next(false)
+  })
+})
