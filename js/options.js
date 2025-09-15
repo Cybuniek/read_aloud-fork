@@ -299,6 +299,8 @@
         return !voice.lang || selectedLangs.includes(voice.lang.split('-',1)[0])
           || isPiperVoice(voice)
           || isOpenai(voice)
+          || isElevenLabs(voice)
+          || isOpenaiRealtime(voice)
       });
 
     //group by standard/premium
