@@ -1075,6 +1075,7 @@ function ElevenLabsTtsEngine() {
 
 function OpenaiTtsEngine() {
   this.defaultEndpointUrl = "https://api.openai.com/v1"
+  const defaultEndpointUrl = this.defaultEndpointUrl
   this.defaultVoiceList = [
     {voice: "alloy", lang: "pl-PL", model: "gpt-4o-mini-tts", instructions: ""},
     {voice: "ash", lang: "pl-PL", model: "gpt-4o-mini-tts", instructions: ""},
@@ -1088,14 +1089,35 @@ function OpenaiTtsEngine() {
     {voice: "shimmer", lang: "pl-PL", model: "gpt-4o-mini-tts", instructions: ""},
   ]
   var prefetchAudio
-  this.test = async function({apiKey, url, voiceList}) {
-    const res = await fetch(url + "/models", {
-      headers: {"Authorization": "Bearer " + apiKey}
+  this.test = async function({apiKey, url}) {
+    const endpoint = normalize(url || defaultEndpointUrl)
+    await Promise.all([
+      this.fetchModels(apiKey, endpoint),
+      this.fetchVoices(apiKey, endpoint)
+    ])
+  }
+  this.fetchModels = async function(apiKey, url) {
+    const endpoint = normalize(url || defaultEndpointUrl)
+    const res = await fetch(endpoint + "/models", {
+      headers: buildHeaders(apiKey)
     })
-    if (!res.ok) {
-      const {error} = await res.json()
-      throw error
-    }
+    if (!res.ok) throw await toError(res)
+    const data = await res.json()
+    if (Array.isArray(data)) return data
+    if (Array.isArray(data.data)) return data.data
+    return []
+  }
+  this.fetchVoices = async function(apiKey, url) {
+    const endpoint = normalize(url || defaultEndpointUrl)
+    const res = await fetch(endpoint + "/voices", {
+      headers: buildHeaders(apiKey)
+    })
+    if (!res.ok) throw await toError(res)
+    const data = await res.json()
+    if (Array.isArray(data)) return data
+    if (Array.isArray(data.data)) return data.data
+    if (Array.isArray(data.voices)) return data.voices
+    return []
   }
   this.speak = function(utterance, options, playbackState$) {
     const urlPromise = Promise.resolve()
@@ -1125,10 +1147,12 @@ function OpenaiTtsEngine() {
   async function getAudioUrl(text, voice, pitch) {
     assert(text && voice)
     const {openaiCreds} = await getSettings(["openaiCreds"])
+    if (!openaiCreds) throw new Error("Configure OpenAI in the settings page.")
     const voiceId = voice.voiceName.slice(7)
     const voiceInfo = openaiCreds.voiceList.find(x => x.voice == voiceId)
     assert(voiceInfo, "Voice not found " + voiceId)
-    const res = await fetch(openaiCreds.url + "/audio/speech", {
+    const endpoint = normalize(openaiCreds.url || defaultEndpointUrl)
+    const res = await fetch(endpoint + "/audio/speech", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -1148,6 +1172,22 @@ function OpenaiTtsEngine() {
     })
     if (!res.ok) throw await res.json().then(x => x.error)
     return URL.createObjectURL(await res.blob())
+  }
+  function normalize(url) {
+    return (url || "").replace(/\/$/, "") || defaultEndpointUrl
+  }
+  async function toError(res) {
+    try {
+      const data = await res.json()
+      const message = data && (data.error || data.message || data.detail || data)
+      return new Error(typeof message == "string" ? message : JSON.stringify(message))
+    }
+    catch (err) {
+      return new Error("Server return " + res.status)
+    }
+  }
+  function buildHeaders(apiKey) {
+    return apiKey ? {"Authorization": "Bearer " + apiKey} : {}
   }
 }
 
